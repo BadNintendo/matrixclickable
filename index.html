@@ -3,46 +3,93 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Expanded Matrix Code Effect</title>
+  <title>Matrix Game</title>
   <style>
     body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-      color: limegreen;
-      font-family: 'Courier New', Courier, monospace;
+      margin          : 0;
+      overflow        : hidden;
+      background      : black;
+      color           : limegreen;
+      font-family     : 'Courier New', Courier, monospace;
+      user-select     : none;
     }
     .matrix {
-      position: absolute;
-      white-space: nowrap;
-      font-size: 16px;
-      opacity: 0.8;
-      cursor: pointer;
+      position        : absolute;
+      white-space     : nowrap;
+      font-size       : 16px;
+      opacity         : 0.8;
+      cursor          : pointer;
+      transition      : transform 0.5s ease-out;
     }
     .expand {
-      position: absolute;
-      color: white;
-      opacity: 0.3;
-      animation: expand 2.5s ease-out forwards;
+      position        : absolute;
+      color           : white;
+      opacity         : 0.3;
+      animation       : expand 2.5s ease-out forwards;
+    }
+    .tooltip {
+      position        : absolute;
+      width           : 30px;
+      height          : 30px;
+      background-color: red;
+      border-radius   : 50%;
+      text-align      : center;
+      line-height     : 30px;
+      color           : white;
+      font-size       : 18px;
+      cursor          : pointer;
+    }
+    .tooltip:hover::after {
+      content         : attr(data-clicks) " clicks\n" attr(data-time);
+      position        : absolute;
+      top             : 40px;
+      left            : -60px;
+      background-color: black;
+      color           : white;
+      padding         : 5px;
+      white-space     : pre;
+      font-size       : 12px;
+      border-radius   : 5px;
+    }
+    .score-icon {
+      position        : absolute;
+      bottom          : 20px;
+      right           : 20px;
+      background-color: limegreen;
+      color           : black;
+      border-radius   : 50%;
+      width           : 60px;
+      height          : 60px;
+      text-align      : center;
+      line-height     : 60px;
+      font-size       : 24px;
+      font-weight     : bold;
+      cursor          : default;
+      user-select     : none;
     }
     @keyframes expand {
       0% {
-        transform: scale(1);
-        opacity: 0.8;
+        transform     : scale(1);
+        opacity       : 0.8;
       }
       100% {
-        transform: scale(100);
-        opacity: 0;
+        transform     : scale(100);
+        opacity       : 0;
       }
     }
   </style>
 </head>
 <body>
+  <div class="score-icon" id="score">0</div>
   <script>
-    const columns = Math.floor(window.innerWidth / 16)
-    const rows = Math.floor(window.innerHeight / 16)
-    const matrixElements = []
-    const speed = 100
+    const columns           = Math.floor(window.innerWidth / 16)
+    const rows              = Math.floor(window.innerHeight / 16)
+    const matrixElements    = []
+    const speedIncrement    = 0.95
+    let speed               = 100
+    let zeroClickCount      = 0
+    const startTime         = Date.now()
+    let canClick            = true
 
     const createMatrixEffect = () => {
       for (let x = 0; x < columns; x++) {
@@ -63,21 +110,85 @@
 
     const randomBinary = () => Math.random() > 0.5 ? '1' : '0'
 
+    const scatterAndReassemble = (centerX, centerY) => {
+      let completed = 0
+      const totalElements = matrixElements.length
+      const centerElements = []
+
+      matrixElements.forEach((element) => {
+        const distanceX = parseFloat(element.style.left) - centerX
+        const distanceY = parseFloat(element.style.top) - centerY
+        const distance = Math.sqrt(distanceX ** 2 + distanceY ** 2)
+        const angle = Math.atan2(distanceY, distanceX)
+        element.style.transform = `translate(${Math.cos(angle) * distance * 2}px, ${Math.sin(angle) * distance * 2}px)`
+
+        setTimeout(() => {
+          element.style.transform = `translate(0, 0)`
+          completed++
+          if (distance < 200) centerElements.push(element)
+
+          if (completed === totalElements) {
+            const reassembleTime = centerElements.length > 0 ? 500 + centerElements.length * 10 : 1000
+            setTimeout(() => {
+              canClick = true
+            }, reassembleTime)
+          }
+        }, 500 + distance * 10)
+      })
+    }
+
     const updateMatrixEffect = () => {
-      matrixElements.forEach(element => element.textContent = randomBinary())
+      matrixElements.forEach(element => {
+        element.textContent = randomBinary()
+        const fontSize = Math.max(8, 16 - (100 / speed))
+        element.style.fontSize = `${fontSize}px`
+      })
     }
 
     const handleDigitClick = event => {
+      if (!canClick) return
+
       const element = event.target
       if (element.textContent === '0') {
+        canClick = false
+        const currentTime = new Date()
+        zeroClickCount++
+        updateScore(zeroClickCount)
+        speed *= speedIncrement
+        if (speed < 10) speed = 10
+        scatterAndReassemble(parseFloat(element.style.left), parseFloat(element.style.top))
         const clone = element.cloneNode(true)
         clone.classList.add('expand')
         clone.style.left = element.style.left
         clone.style.top = element.style.top
-        clone.style.fontSize = element.style.fontSize
         document.body.appendChild(clone)
         clone.addEventListener('animationend', () => clone.remove())
+        createTooltip(event.pageX, event.pageY, zeroClickCount, currentTime)
       }
+    }
+
+    const updateScore = score => {
+      document.getElementById('score').textContent = score
+    }
+
+    const createTooltip = (x, y, clicks, time) => {
+      const tooltip = document.createElement('div')
+      tooltip.classList.add('tooltip')
+      tooltip.style.left = `${x}px`
+      tooltip.style.top = `${y}px`
+      tooltip.dataset.clicks = clicks
+      tooltip.dataset.time = formatTime(time)
+      document.body.appendChild(tooltip)
+      setTimeout(() => tooltip.remove(), 2000)
+    }
+
+    const formatTime = time => {
+      const diff = time - startTime
+      const milliseconds = diff % 1000
+      const seconds = Math.floor((diff / 1000) % 60)
+      const minutes = Math.floor((diff / (1000 * 60)) % 60)
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24)
+      return `${hours}:${minutes}:${seconds}.${milliseconds}`
     }
 
     const animate = () => {
