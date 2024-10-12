@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matrix Snake Game</title>
+  <style>
+    body {
+      margin          : 0;
+      overflow        : hidden;
+      background      : black;
+      color           : limegreen;
+      font-family     : 'Courier New', Courier, monospace;
+      user-select     : none;
+    }
+    .matrix {
+      position        : absolute;
+      white-space     : nowrap;
+      font-size       : 16px;
+      opacity         : 0.8;
+      cursor          : pointer;
+    }
+    .score-icon {
+      position        : absolute;
+      bottom          : 20px;
+      right           : 20px;
+      background-color: limegreen;
+      color           : black;
+      border-radius   : 50%;
+      width           : 60px;
+      height          : 60px;
+      text-align      : center;
+      line-height     : 60px;
+      font-size       : 24px;
+      font-weight     : bold;
+      cursor          : default;
+      user-select     : none;
+    }
+  </style>
+</head>
+<body>
+  <div class="score-icon" id="score">0</div>
+  <script>
+    const columns           = Math.floor(window.innerWidth / 16)
+    const rows              = Math.floor(window.innerHeight / 16)
+    const matrixElements    = []
+    let speed               = 100
+    let zeroClickCount      = 0
+    let canClick            = true
+    let isSnakeMode         = false
+    let snakeDirection      = 'right'
+    let snake               = [{ x: 0, y: 0 }]
+    const startTime         = Date.now()
+
+    const createMatrixEffect = () => {
+      for (let x = 0; x < columns; x++) {
+        for (let y = 0; y < rows; y++) {
+          const span = document.createElement('span')
+          span.classList.add('matrix')
+          span.style.left = `${x * 16}px`
+          span.style.top = `${y * 16}px`
+          span.textContent = randomBinary()
+          span.dataset.x = x
+          span.dataset.y = y
+          span.addEventListener('click', handleDigitClick) // Enable clicking
+          document.body.appendChild(span)
+          matrixElements.push(span)
+        }
+      }
+    }
+
+    const randomBinary = () => Math.random() > 0.5 ? '1' : '0'
+
+    const updateMatrixEffect = () => {
+      if (!isSnakeMode) {
+        matrixElements.forEach(element => {
+          element.textContent = randomBinary()
+        })
+      } else {
+        moveSnake()
+        checkSnakeCollision()
+      }
+    }
+
+    const handleDigitClick = event => {
+      if (!canClick || isSnakeMode) return // Disable clicks in snake mode
+
+      const element = event.target
+      if (element.textContent === '0') {
+        zeroClickCount++
+        updateScore(zeroClickCount)
+        element.textContent = '1' // Turn the clicked 0 into a 1
+
+        if (zeroClickCount >= 10) {
+          startSnakeGame() // Start snake game once score reaches 10
+        }
+      }
+    }
+
+    const updateScore = score => {
+      document.getElementById('score').textContent = score
+    }
+
+    const startSnakeGame = () => {
+      isSnakeMode = true
+      canClick = false
+      document.body.style.cursor = 'none' // Hide cursor during snake game
+    }
+
+    const moveSnake = () => {
+      const head = snake[0]
+      let newHead
+
+      if (snakeDirection === 'right') newHead = { x: head.x + 1, y: head.y }
+      if (snakeDirection === 'left') newHead = { x: head.x - 1, y: head.y }
+      if (snakeDirection === 'up') newHead = { x: head.x, y: head.y - 1 }
+      if (snakeDirection === 'down') newHead = { x: head.x, y: head.y + 1 }
+
+      newHead.x = (newHead.x + columns) % columns
+      newHead.y = (newHead.y + rows) % rows
+
+      snake.unshift(newHead)
+      snake.pop() // Remove tail unless eating
+      updateSnakeOnScreen()
+    }
+
+    const updateSnakeOnScreen = () => {
+      matrixElements.forEach(element => {
+        const x = parseInt(element.dataset.x)
+        const y = parseInt(element.dataset.y)
+
+        const isPartOfSnake = snake.some(part => part.x === x && part.y === y)
+        if (isPartOfSnake) {
+          element.textContent = '1'
+        }
+      })
+    }
+
+    const checkSnakeCollision = () => {
+      const head = snake[0]
+      matrixElements.forEach(element => {
+        if (parseInt(element.dataset.x) === head.x && parseInt(element.dataset.y) === head.y) {
+          if (element.textContent === '0') {
+            element.textContent = '1' // Snake eats the 0
+            snake.push({ ...snake[snake.length - 1] }) // Grow the snake
+          }
+        }
+      })
+
+      if (!matrixElements.some(el => el.textContent === '0')) {
+        levelUp()
+      }
+    }
+
+    const levelUp = () => {
+      speed *= 0.9 // Increase speed for the next level
+      isSnakeMode = false
+      canClick = true
+      zeroClickCount = 0
+      resetMatrix() // Reset the matrix for the next level
+    }
+
+    const resetMatrix = () => {
+      matrixElements.forEach(element => {
+        element.textContent = randomBinary()
+      })
+    }
+
+    const changeDirection = event => {
+      const key = event.key
+      if (key === 'ArrowUp' && snakeDirection !== 'down') snakeDirection = 'up'
+      if (key === 'ArrowDown' && snakeDirection !== 'up') snakeDirection = 'down'
+      if (key === 'ArrowLeft' && snakeDirection !== 'right') snakeDirection = 'left'
+      if (key === 'ArrowRight' && snakeDirection !== 'left') snakeDirection = 'right'
+    }
+
+    const animate = () => {
+      updateMatrixEffect()
+      setTimeout(animate, speed)
+    }
+
+    document.addEventListener('keydown', changeDirection)
+    createMatrixEffect()
+    animate()
+  </script>
+</body>
+</html>
