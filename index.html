@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expanded Matrix Code Effect</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      color: limegreen;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    .matrix {
+      position: absolute;
+      white-space: nowrap;
+      font-size: 16px;
+      opacity: 0.8;
+      cursor: pointer;
+    }
+    .expand {
+      position: absolute;
+      color: white;
+      opacity: 0.3;
+      animation: expand 2.5s ease-out forwards;
+    }
+    @keyframes expand {
+      0% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+      100% {
+        transform: scale(100);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <script>
+    const columns = Math.floor(window.innerWidth / 16)
+    const rows = Math.floor(window.innerHeight / 16)
+    const matrixElements = []
+    const speed = 100
+
+    const createMatrixEffect = () => {
+      for (let x = 0; x < columns; x++) {
+        for (let y = 0; y < rows; y++) {
+          const span = document.createElement('span')
+          span.classList.add('matrix')
+          span.style.left = `${x * 16}px`
+          span.style.top = `${y * 16}px`
+          span.textContent = randomBinary()
+          span.dataset.x = x
+          span.dataset.y = y
+          span.addEventListener('click', handleDigitClick)
+          document.body.appendChild(span)
+          matrixElements.push(span)
+        }
+      }
+    }
+
+    const randomBinary = () => Math.random() > 0.5 ? '1' : '0'
+
+    const updateMatrixEffect = () => {
+      matrixElements.forEach(element => element.textContent = randomBinary())
+    }
+
+    const handleDigitClick = event => {
+      const element = event.target
+      if (element.textContent === '0') {
+        const clone = element.cloneNode(true)
+        clone.classList.add('expand')
+        clone.style.left = element.style.left
+        clone.style.top = element.style.top
+        clone.style.fontSize = element.style.fontSize
+        document.body.appendChild(clone)
+        clone.addEventListener('animationend', () => clone.remove())
+      }
+    }
+
+    const animate = () => {
+      updateMatrixEffect()
+      setTimeout(animate, speed)
+    }
+
+    createMatrixEffect()
+    animate()
+  </script>
+</body>
+</html>
